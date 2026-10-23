@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Oficina Mec\u00e2nica",
+    "slug": "oficina-mecanica",
+    "scheme": "oficina",
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

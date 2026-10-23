@@ -1,0 +1,16 @@
+# Dependências do Node.js
+node_modules/
+
+# Arquivos temporários do Expo
+.expo/
+
+# Variáveis de ambiente
+.env
+.env.*
+
+# Arquivos gerados
+dist/
+build/
+
+# Logs
+*.log
