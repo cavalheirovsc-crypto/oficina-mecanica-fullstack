@@ -27,11 +27,44 @@ for (const tipo of Object.keys(tabelas)) {
       }
     }
 
-    return res.json(itens);
+    if (tipo === 'veiculos') {
+  try {
+    const [resultado] = await db.execute(
+      'SELECT * FROM veiculos'
+    );
+
+    return res.json(resultado);
+
+  } catch (erroBanco) {
+    console.error('Erro ao listar veículos:', erroBanco.message);
+    return erro(res, 500, 'Erro ao buscar veículos no MySQL');
+  }
+}
+
+return res.json(itens);
   });
 
   
 app.get('/' + tipo + '/:id', async (req, res) => {
+
+  if (tipo === 'veiculos') {
+  try {
+    const [resultado] = await db.execute(
+      'SELECT * FROM veiculos WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (resultado.length === 0) {
+      return erro(res, 404, 'Veículo não encontrado');
+    }
+
+    return res.json(resultado[0]);
+
+  } catch (erroBanco) {
+    console.error('Erro ao buscar veículo:', erroBanco.message);
+    return erro(res, 500, 'Erro ao consultar veículo no MySQL');
+  }
+}
 
   if (tipo === 'clientes') {
     try {
@@ -62,7 +95,6 @@ app.get('/' + tipo + '/:id', async (req, res) => {
   app.post('/' + tipo, async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) return erro(res, 400, 'Dados inválidos');
     if (tipo === 'clientes' && !String(req.body.nome || '').trim()) return erro(res, 400, 'Informe o nome');
-    if (tipo === 'veiculos' && !clientes.some(c => c.id === req.body.clienteId)) return erro(res, 400, 'Cliente associado inexistente!');
     if (tipo === 'ordens-servico' && !veiculos.some(v => v.id === req.body.veiculoId)) return erro(res, 400, 'Veículo associado inexistente!');
     
     const novo = {
@@ -95,6 +127,52 @@ app.get('/' + tipo + '/:id', async (req, res) => {
       }
     }
 
+    if (tipo === 'veiculos') {
+  try {
+    const { marca, modelo, ano, placa } = novo;
+    const clienteId = novo.clienteId ?? novo.cliente_id;
+
+    if (!marca || !modelo || !clienteId) {
+      return erro(res, 400, 'Informe marca, modelo e cliente');
+    }
+
+    const [clientesEncontrados] = await db.execute(
+      'SELECT id FROM clientes WHERE id = ?',
+      [clienteId]
+    );
+
+    if (clientesEncontrados.length === 0) {
+      return erro(res, 400, 'Cliente associado inexistente!');
+    }
+
+    await db.execute(
+      `INSERT INTO veiculos
+       (id, marca, modelo, ano, placa, cliente_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        novo.id,
+        marca,
+        modelo,
+        ano ?? null,
+        placa ?? null,
+        clienteId
+      ]
+    );
+
+    return res.status(201).json({
+      id: novo.id,
+      marca,
+      modelo,
+      ano: ano ?? null,
+      placa: placa ?? null,
+      cliente_id: clienteId
+    });
+
+  } catch (erroBanco) {
+    console.error('Erro ao cadastrar veículo:', erroBanco.message);
+    return erro(res, 500, 'Erro ao salvar veículo no MySQL');
+  }
+}
     itens.push(novo);
     return res.status(201).json(novo);
 
@@ -105,7 +183,66 @@ app.get('/' + tipo + '/:id', async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
       return erro(res, 400, 'Dados inválidos');
     }
+    if (tipo === 'veiculos') {
+  try {
+    const [resultado] = await db.execute(
+      'SELECT * FROM veiculos WHERE id = ?',
+      [req.params.id]
+    );
 
+    if (resultado.length === 0) {
+      return erro(res, 404, 'Veículo não encontrado');
+    }
+
+    const anterior = resultado[0];
+
+    const marca = req.body.marca ?? anterior.marca;
+    const modelo = req.body.modelo ?? anterior.modelo;
+    const ano = req.body.ano ?? anterior.ano;
+    const placa = req.body.placa ?? anterior.placa;
+    const clienteId = req.body.cliente_id ??
+                      req.body.clienteId ??
+                      anterior.cliente_id;
+
+    if (typeof marca !== 'string' || !marca.trim() ||
+        typeof modelo !== 'string' || !modelo.trim()) {
+      return erro(res, 400, 'Informe marca e modelo válidos');
+    }
+
+    if (!Number.isInteger(ano) || ano < 1886) {
+      return erro(res, 400, 'Informe um ano válido');
+    }
+
+    const [clientesEncontrados] = await db.execute(
+      'SELECT id FROM clientes WHERE id = ?',
+      [clienteId]
+    );
+
+    if (clientesEncontrados.length === 0) {
+      return erro(res, 400, 'Cliente associado inexistente!');
+    }
+
+    await db.execute(
+      `UPDATE veiculos
+       SET marca = ?, modelo = ?, ano = ?, placa = ?, cliente_id = ?
+       WHERE id = ?`,
+      [marca.trim(), modelo.trim(), ano, placa, clienteId, req.params.id]
+    );
+
+    return res.json({
+      id: req.params.id,
+      marca: marca.trim(),
+      modelo: modelo.trim(),
+      ano,
+      placa,
+      cliente_id: clienteId
+    });
+
+  } catch (erroBanco) {
+    console.error('Erro ao atualizar veículo:', erroBanco.message);
+    return erro(res, 500, 'Erro ao atualizar veículo no MySQL');
+  }
+}
     if (tipo === 'clientes') {
       try {
         const [clientesEncontrados] = await db.execute(
@@ -166,7 +303,29 @@ app.get('/' + tipo + '/:id', async (req, res) => {
   });
 
   app.delete('/' + tipo + '/:id', async (req, res) => {
-    
+    if (tipo === 'veiculos') {
+  try {
+    const [resultado] = await db.execute(
+      'DELETE FROM veiculos WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (resultado.affectedRows === 0) {
+      return erro(res, 404, 'Veículo não encontrado');
+    }
+
+    return res.status(204).send();
+
+  } catch (erroBanco) {
+    if (erroBanco.code === 'ER_ROW_IS_REFERENCED_2') {
+      return erro(res, 409, 'Veículo possui ordens de serviço');
+    }
+
+    console.error('Erro ao excluir veículo:', erroBanco.message);
+    return erro(res, 500, 'Erro ao excluir veículo no MySQL');
+  }
+}
+
     if (tipo === 'clientes') {
       try {
         const [resultado] = await db.execute(
