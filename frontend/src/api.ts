@@ -1,6 +1,6 @@
 // No celular: substitua pelo IPv4 do computador (ex.: http://192.168.1.10:3000).
 // No emulador Android: use http://10.0.2.2:3000.
-export const API_URL = 'http://localhost:3000';
+export const API_URL = 'http://192.168.101.76:3000';
 export type Registro = { id: string; [campo: string]: any };
 export async function api(caminho: string, metodo = 'GET', dados?: object): Promise<any> {
   const resposta = await fetch(`${API_URL}${caminho}`, {

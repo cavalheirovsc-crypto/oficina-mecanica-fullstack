@@ -542,7 +542,10 @@ if (tipo === 'ordens-servico') {
     const veiculoId = novo.veiculo_id ?? novo.veiculoId;
     const descricao = novo.descricao;
     const status = novo.status;
-    const valor = novo.valor ?? null;
+    const valorInformado = novo.valor;
+const valor = valorInformado == null || valorInformado === ''
+  ? null
+  : Number(String(valorInformado).replace(',', '.'));
 
     // Verifica se os dados obrigatórios foram enviados.
     if (!clienteId || !veiculoId ||
@@ -785,7 +788,9 @@ if (tipo === 'ordens-servico') {
         // o campo não é enviado na requisição.
         const marca = req.body.marca ?? anterior.marca;
         const modelo = req.body.modelo ?? anterior.modelo;
-        const ano = req.body.ano ?? anterior.ano;
+        // Recebe o ano enviado pelo aplicativo ou mantém o ano anterior.
+// Number() converte o texto "2019" para o número 2019.
+const ano = Number(req.body.ano ?? anterior.ano);
         const placa = req.body.placa ?? anterior.placa;
 
         // Identifica o proprietário do veículo.
