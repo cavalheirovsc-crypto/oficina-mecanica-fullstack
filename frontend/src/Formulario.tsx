@@ -10,19 +10,27 @@ import { secoes, Tipo } from './config';
 
 // Formulário para cadastrar e editar registros.
 // Recebe também o cliente selecionado na tela Consultar Cliente.
+// Recebe o cliente e o veículo selecionados.
 export default function Formulario({
-  tipo, id, clienteId
+  tipo, id, clienteId, veiculoId
 }: {
   tipo: Tipo;
   id?: string;
   clienteId?: string;
+  veiculoId?: string;
 }) {
   const router = useRouter();
 
   // Preenche o proprietário automaticamente ao cadastrar um veículo.
+// Preenche os relacionamentos automaticamente.
 const [valores, setValores] = useState<Record<string, string>>(
   tipo === 'veiculos' && clienteId
     ? { cliente_id: clienteId }
+    : tipo === 'ordens-servico' && clienteId && veiculoId
+    ? {
+        clienteId: clienteId,
+        veiculoId: veiculoId
+      }
     : {}
 );
   const [salvando, setSalvando] = useState(false);
@@ -37,6 +45,61 @@ const [nomeProprietario, setNomeProprietario] = useState('');
   const [clienteEncontrado, setClienteEncontrado] = useState<any>(null);
 
   // Busca o nome do proprietário ao cadastrar um veículo.
+
+  // Identifica automaticamente o veículo e seu proprietário
+  // quando a ordem é aberta pelo perfil do cliente.
+  useEffect(() => {
+    if (tipo !== 'ordens-servico' || !clienteId || !veiculoId || id) {
+      return;
+    }
+
+    let ativo = true;
+
+    async function carregarVeiculoSelecionado() {
+      setErro('');
+
+      try {
+        const [cliente, veiculo] = await Promise.all([
+          api(`/clientes/${clienteId}`),
+          api(`/veiculos/${veiculoId}`)
+        ]);
+
+        // Confirma que o veículo pertence ao cliente selecionado.
+        if (String(veiculo.cliente_id ?? veiculo.clienteId) !== String(clienteId)) {
+          throw new Error('Este veículo não pertence ao cliente selecionado.');
+        }
+
+        if (ativo) {
+          setClienteEncontrado(cliente);
+          setVeiculoEncontrado(veiculo);
+          setPlacaBusca(String(veiculo.placa ?? ''));
+
+          setValores(v => ({
+            ...v,
+            clienteId: String(clienteId),
+            veiculoId: String(veiculoId)
+          }));
+        }
+      } catch (e: any) {
+        if (ativo) {
+          setValores(v => ({
+            ...v,
+            clienteId: '',
+            veiculoId: ''
+          }));
+          setErro(e.message);
+        }
+      }
+    }
+
+    carregarVeiculoSelecionado();
+
+    return () => {
+      ativo = false;
+    };
+  }, [tipo, clienteId, veiculoId, id]);
+
+
 useEffect(() => {
   if (tipo !== 'veiculos' || !clienteId || id) return;
 
@@ -230,7 +293,7 @@ if (tipo === 'veiculos' && clienteId && !id) {
       ) : (
         <>
           {/* Busca pela placa nas ordens de serviço. */}
-          {tipo === 'ordens-servico' && (
+          {tipo === 'ordens-servico' && !veiculoId && (
             <View className="mb-4">
               <Text className="text-slate-700 font-semibold mb-2">
                 Buscar veículo pela placa

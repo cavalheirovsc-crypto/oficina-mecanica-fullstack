@@ -5,19 +5,22 @@ import Formulario from '../../src/Formulario';
 import { valido } from '../../src/config';
 
 export default function Novo() {
-  // Recebe o tipo de cadastro e o cliente selecionado.
-  const { tipo, clienteId } = useLocalSearchParams<{
+  // Recebe os dados enviados pela tela anterior.
+  const { tipo, clienteId, veiculoId } = useLocalSearchParams<{
     tipo: string;
     clienteId?: string;
+    veiculoId?: string;
   }>();
 
-  if (!valido(tipo)) return <Text>Seção inválida</Text>;
+  if (!valido(tipo)) {
+    return <Text>Seção inválida</Text>;
+  }
 
-  // Envia o cliente ao formulário de veículo.
   return (
     <Formulario
       tipo={tipo}
-      clienteId={tipo === 'veiculos' ? clienteId : undefined}
+      clienteId={clienteId}
+      veiculoId={tipo === 'ordens-servico' ? veiculoId : undefined}
     />
   );
 }

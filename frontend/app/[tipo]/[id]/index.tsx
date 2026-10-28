@@ -24,6 +24,10 @@ export default function Detalhes() {
   const [carregando, setCarregando] = useState(true);
   // Guarda todos os veículos pertencentes ao cliente consultado.
 const [veiculosCliente, setVeiculosCliente] = useState<any[]>([]);
+
+// Guarda as ordens de serviço dos veículos do cliente.
+const [ordensCliente, setOrdensCliente] = useState<any[]>([]);
+
   // Busca os dados atualizados ao abrir a tela.
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +42,8 @@ const [veiculosCliente, setVeiculosCliente] = useState<any[]>([]);
         setCliente(null);
         setVeiculo(null);
         setVeiculosCliente([]);
+        // Limpa o histórico antes de carregar novamente.
+setOrdensCliente([]);
 
         try {
           const registro = await api(`/${tipo}/${id}`);
@@ -47,14 +53,25 @@ const [veiculosCliente, setVeiculosCliente] = useState<any[]>([]);
 
           // Busca os veículos cadastrados para este cliente.
 if (tipo === 'clientes') {
-  const todosVeiculos = await api('/veiculos');
-
+// Busca os veículos e as ordens de serviço cadastradas.
+const [todosVeiculos, todasOrdens] = await Promise.all([
+  api('/veiculos'),
+  api('/ordens-servico')
+]);
   const associados = todosVeiculos.filter((v: any) =>
     String(v.cliente_id ?? v.clienteId) === String(id)
   );
 
-  if (ativo) setVeiculosCliente(associados);
-}
+if (ativo) {
+  setVeiculosCliente(associados);
+
+  // Seleciona apenas as ordens pertencentes ao cliente.
+  const ordensAssociadas = todasOrdens.filter((ordem: any) =>
+    String(ordem.cliente_id ?? ordem.clienteId) === String(id)
+  );
+
+  setOrdensCliente(ordensAssociadas);
+}}
 
           // Busca o cliente e o veículo associados à ordem.
           if (tipo === 'ordens-servico') {
@@ -192,6 +209,77 @@ if (tipo === 'clientes') {
           <Text className="text-slate-600">
             Ano: {v.ano}
           </Text>
+          
+{/* Histórico de serviços deste veículo. */}
+<View className="border-t border-slate-200 mt-4 pt-4">
+  <Text className="text-slate-900 font-bold mb-3">
+    🔧 Histórico de serviços
+  </Text>
+
+  {ordensCliente.filter((ordem: any) =>
+    String(ordem.veiculo_id ?? ordem.veiculoId) === String(v.id)
+  ).length === 0 ? (
+    <Text className="text-slate-500">
+      Nenhum serviço registrado para este veículo.
+    </Text>
+  ) : (
+    ordensCliente
+      .filter((ordem: any) =>
+        String(ordem.veiculo_id ?? ordem.veiculoId) === String(v.id)
+      )
+      .map((ordem: any) => (
+        <Link
+          key={String(ordem.id)}
+          href={{
+            pathname: '/[tipo]/[id]',
+            params: {
+              tipo: 'ordens-servico',
+              id: String(ordem.id)
+            }
+          }}
+          asChild
+        >
+          <Pressable className="bg-white border border-slate-200 rounded-xl p-3 mb-2">
+            <Text className="text-slate-900 font-bold">
+              {ordem.descricao}
+            </Text>
+
+            <Text className="text-slate-600 mt-1">
+              Status: {ordem.status}
+            </Text>
+
+            <Text className="text-slate-600">
+              Valor: R$ {Number(ordem.valor).toFixed(2).replace('.', ',')}
+            </Text>
+
+            <Text className="text-blue-600 font-semibold mt-2">
+              Consultar ordem de serviço
+            </Text>
+          </Pressable>
+        </Link>
+      ))
+  )}
+</View>
+
+{/* Abre uma ordem de serviço para este veículo. */}
+<Link
+  href={{
+    pathname: '/[tipo]/novo',
+    params: {
+      tipo: 'ordens-servico',
+      clienteId: id,
+      veiculoId: String(v.id)
+    }
+  }}
+  asChild
+>
+  <Pressable className="bg-amber-500 rounded-xl p-3 mt-4">
+    <Text className="text-slate-950 text-center font-bold">
+      + Nova ordem de serviço
+    </Text>
+  </Pressable>
+</Link>
+
         </View>
       ))
     )}
