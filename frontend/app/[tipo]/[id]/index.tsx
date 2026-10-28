@@ -19,9 +19,11 @@ export default function Detalhes() {
   const [item, setItem] = useState<Registro | null>(null);
   const [cliente, setCliente] = useState<any>(null);
   const [veiculo, setVeiculo] = useState<any>(null);
+
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(true);
-
+  // Guarda todos os veículos pertencentes ao cliente consultado.
+const [veiculosCliente, setVeiculosCliente] = useState<any[]>([]);
   // Busca os dados atualizados ao abrir a tela.
   useFocusEffect(
     useCallback(() => {
@@ -35,12 +37,24 @@ export default function Detalhes() {
         setItem(null);
         setCliente(null);
         setVeiculo(null);
+        setVeiculosCliente([]);
 
         try {
           const registro = await api(`/${tipo}/${id}`);
           if (!ativo) return;
 
           setItem(registro);
+
+          // Busca os veículos cadastrados para este cliente.
+if (tipo === 'clientes') {
+  const todosVeiculos = await api('/veiculos');
+
+  const associados = todosVeiculos.filter((v: any) =>
+    String(v.cliente_id ?? v.clienteId) === String(id)
+  );
+
+  if (ativo) setVeiculosCliente(associados);
+}
 
           // Busca o cliente e o veículo associados à ordem.
           if (tipo === 'ordens-servico') {
@@ -149,6 +163,57 @@ export default function Detalhes() {
 
             {/* O ID interno não é exibido para o funcionário. */}
           </View>
+          {/* Lista os veículos pertencentes ao cliente consultado. */}
+{tipo === 'clientes' && (
+  <View className="bg-white rounded-2xl p-5 border border-slate-200 mb-5">
+
+    <Text className="text-slate-900 text-xl font-extrabold mb-4">
+      🚙 Veículos cadastrados
+    </Text>
+
+    {veiculosCliente.length === 0 ? (
+      <Text className="text-slate-500">
+        Este cliente ainda não possui veículos cadastrados.
+      </Text>
+    ) : (
+      veiculosCliente.map((v: any) => (
+        <View
+          key={String(v.id)}
+          className="bg-slate-50 rounded-xl p-4 mb-3"
+        >
+          <Text className="text-slate-900 font-bold text-lg">
+            {v.marca} {v.modelo}
+          </Text>
+
+          <Text className="text-slate-600 mt-1">
+            Placa: {v.placa}
+          </Text>
+
+          <Text className="text-slate-600">
+            Ano: {v.ano}
+          </Text>
+        </View>
+      ))
+    )}
+
+  </View>
+)}
+{/* Permite cadastrar outro veículo para o cliente consultado. */}
+{tipo === 'clientes' && (
+  <Link
+    href={{
+      pathname: '/[tipo]/novo',
+      params: { tipo: 'veiculos', clienteId: id }
+    }}
+    asChild
+  >
+    <Pressable className="bg-blue-600 rounded-xl p-4 mb-3">
+      <Text className="text-white text-center font-bold">
+        + Cadastrar novo veículo
+      </Text>
+    </Pressable>
+  </Link>
+)}
 
           <Link
             href={{ pathname: '/[tipo]/[id]/editar', params: { tipo, id } }}

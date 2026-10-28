@@ -9,19 +9,41 @@ import { api } from './api';
 import { secoes, Tipo } from './config';
 
 // Formulário para cadastrar e editar registros.
-export default function Formulario({ tipo, id }: { tipo: Tipo; id?: string }) {
+// Recebe também o cliente selecionado na tela Consultar Cliente.
+export default function Formulario({
+  tipo, id, clienteId
+}: {
+  tipo: Tipo;
+  id?: string;
+  clienteId?: string;
+}) {
   const router = useRouter();
 
-  const [valores, setValores] = useState<Record<string, string>>({});
+  // Preenche o proprietário automaticamente ao cadastrar um veículo.
+const [valores, setValores] = useState<Record<string, string>>(
+  tipo === 'veiculos' && clienteId
+    ? { cliente_id: clienteId }
+    : {}
+);
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(!!id);
   const [erro, setErro] = useState('');
+  // Nome do proprietário selecionado.
+const [nomeProprietario, setNomeProprietario] = useState('');
 
   // Dados utilizados na busca pela placa.
   const [placaBusca, setPlacaBusca] = useState('');
   const [veiculoEncontrado, setVeiculoEncontrado] = useState<any>(null);
   const [clienteEncontrado, setClienteEncontrado] = useState<any>(null);
 
+  // Busca o nome do proprietário ao cadastrar um veículo.
+useEffect(() => {
+  if (tipo !== 'veiculos' || !clienteId || id) return;
+
+  api(`/clientes/${clienteId}`)
+    .then(cliente => setNomeProprietario(cliente.nome))
+    .catch(e => setErro(e.message));
+}, [tipo, clienteId, id]);
   // Carrega os dados existentes ao editar.
   useEffect(() => {
     if (!id) return;
@@ -157,8 +179,22 @@ export default function Formulario({ tipo, id }: { tipo: Tipo; id?: string }) {
       );
 
       Alert.alert('Sucesso', id ? 'Registro atualizado' : 'Registro cadastrado');
-      router.replace({ pathname: '/[tipo]', params: { tipo } });
-    } catch (e: any) {
+// Após cadastrar um veículo pelo perfil do cliente,
+// retorna diretamente para os detalhes desse cliente.
+if (tipo === 'veiculos' && clienteId && !id) {
+  router.replace({
+    pathname: '/[tipo]/[id]',
+    params: {
+      tipo: 'clientes',
+      id: clienteId
+    }
+  });
+} else {
+  router.replace({
+    pathname: '/[tipo]',
+    params: { tipo }
+  });
+}    } catch (e: any) {
       setErro(e.message);
     } finally {
       setSalvando(false);
@@ -180,6 +216,14 @@ export default function Formulario({ tipo, id }: { tipo: Tipo; id?: string }) {
       <Text className="text-slate-500 mb-6">
         Preencha os dados abaixo.
       </Text>
+      {/* Identifica o proprietário do novo veículo. */}
+{tipo === 'veiculos' && clienteId && (
+  <View className="bg-green-50 border border-green-300 rounded-xl p-4 mb-5">
+    <Text className="text-green-700 font-bold">
+      ✓ Proprietário: {nomeProprietario || 'Carregando...'}
+    </Text>
+  </View>
+)}
 
       {carregando ? (
         <ActivityIndicator />
@@ -238,11 +282,13 @@ export default function Formulario({ tipo, id }: { tipo: Tipo; id?: string }) {
             )}
 
           {/* Os IDs ficam ocultos tanto no cadastro quanto na edição de ordens. */}
-          {secoes[tipo].campos
-            .filter(([chave]) =>
-              !(tipo === 'ordens-servico' &&
-                (chave === 'clienteId' || chave === 'veiculoId'))
-            )
+          {/* Oculta os IDs quando já temos o cliente ou veículo associado. */}
+{secoes[tipo].campos
+  .filter(([chave]) =>
+    !(tipo === 'ordens-servico' &&
+      (chave === 'clienteId' || chave === 'veiculoId')) &&
+    !(tipo === 'veiculos' && !!clienteId && chave === 'cliente_id')
+  )
             .map(([chave, rotulo]) => (
               <View key={chave} className="mb-4">
                 <Text className="text-slate-700 font-semibold mb-2">
